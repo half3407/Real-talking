@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 # 把上一阶段构建好的前端,复制到后端的 static/(main.py 会从这里端出去)
 COPY --from=frontend /app/frontend/dist ./static
-ENV PORT=8000
-EXPOSE 8000
+ENV PORT=7860
+EXPOSE 7860
 # 监听 0.0.0.0 + 平台分配的 $PORT
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

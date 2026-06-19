@@ -1,3 +1,13 @@
+---
+title: Real Talking
+emoji: 🗣️
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Real Talking 🗣️
 
 和 AI 进行深度"真心话"对话的小项目。用户倾诉,AI 倾听并给建议。
