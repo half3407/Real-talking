@@ -147,7 +147,7 @@ async function scrollToBottom() {
 // 让一个人格说一轮:把已标注好的历史发给后端,流式写进第 idx 条消息
 async function streamOnePersona(payload, personaId, idx) {
   try {
-    const res = await fetch('http://localhost:8000/api/chat', {
+    const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -276,7 +276,7 @@ onMounted(async () => {
 
   // 4) 拉人格列表
   try {
-    const res = await fetch('http://localhost:8000/api/personas')
+    const res = await fetch('/api/personas')
     personas.value = await res.json()
     if (personas.value.length) selectedIds.value = [personas.value[0].id]
   } catch (e) {

@@ -1,8 +1,11 @@
 """Real Talking 后端:把前端的消息转发给大模型,并以"流式"把回答一点点吐回前端。"""
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import OpenAI
 
@@ -162,3 +165,14 @@ def chat(req: ChatRequest):
 
     # 用纯文本流最简单;以后要传"谁在说/结束信号"等结构化信息再升级成 SSE
     return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
+
+
+# —— 上线时:后端顺便把前端打包好的页面也端出去(同源,无需跨域)——
+# Docker 构建会把 frontend/dist 复制到这里的 static/;本地直接回退到 ../frontend/dist
+_HERE = os.path.dirname(__file__)
+_STATIC_DIR = os.path.join(_HERE, "static")
+if not os.path.isdir(_STATIC_DIR):
+    _STATIC_DIR = os.path.join(_HERE, "..", "frontend", "dist")
+if os.path.isdir(_STATIC_DIR):
+    # 必须放在所有 /api 路由之后:它接管其余所有路径,把前端页面端出去
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="static")

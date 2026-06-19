@@ -1,0 +1,10 @@
+# 别把这些塞进镜像构建上下文(又大又没用,容器里会重新生成)
+**/node_modules
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+frontend/dist
+.git
+.claude
+.env
