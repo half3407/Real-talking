@@ -287,9 +287,21 @@ onMounted(async () => {
 
 <template>
   <div class="app">
-    <!-- 侧边栏:最近对话列表 -->
+    <!-- 最左:窄图标栏(三种模式 + 头像) -->
+    <nav class="rail">
+      <div class="rail-orb" aria-hidden="true"></div>
+      <button class="rail-btn active" type="button" title="多人格圆桌(当前模式)">💬</button>
+      <button class="rail-btn" type="button" disabled title="情景描述 · 即将上线">🎭</button>
+      <button class="rail-btn" type="button" disabled title="长线深聊 · 即将上线">🌱</button>
+      <span class="rail-spacer"></span>
+      <div class="rail-avatar" aria-hidden="true">你</div>
+    </nav>
+
+    <!-- 中间:最近对话 -->
     <aside class="sidebar">
-      <button class="new-btn" type="button" @click="newConversation">＋ 新对话</button>
+      <button class="new-btn" type="button" @click="newConversation">
+        新对话 <span class="plus">＋</span>
+      </button>
       <div class="conv-list">
         <div v-for="c in sortedConversations" :key="c.id"
              :class="['conv-item', { active: c.id === currentId }]"
@@ -302,36 +314,41 @@ onMounted(async () => {
       </div>
     </aside>
 
-    <!-- 主区:聊天 -->
+    <!-- 右:主聊天面板 -->
     <main class="main">
-      <h1>Real Talking 🗣️</h1>
-
-      <div class="settings">
-        <input v-model="apiKey" @blur="saveKey" type="password"
-               placeholder="你的 DeepSeek API key(只存在本机)" />
-        <select v-model="modelSelect" class="model">
-          <option value="deepseek-chat">deepseek-chat(V3,日常对话)</option>
-          <option value="deepseek-reasoner">deepseek-reasoner(R1,深度推理)</option>
-          <option value="__custom__">自定义…</option>
-        </select>
-        <input v-if="modelSelect === '__custom__'" v-model="customModel"
-               placeholder="输入模型名,如 gpt-4o-mini" />
-      </div>
-
-      <!-- 卡片式人格选择:可多选,卡片上的数字是发言顺序 -->
-      <p class="hint">选一个或多个人格(数字 = 发言顺序),它们会依次回应你:</p>
-      <div class="personas">
-        <div v-for="p in personas" :key="p.id"
-             :class="['persona-card', { active: selectedIds.includes(p.id) }]"
-             @click="togglePersona(p.id)">
-          <span v-if="orderOf(p.id)" class="order">{{ orderOf(p.id) }}</span>
-          <span class="emoji">{{ p.emoji }}</span>
-          <span class="name">{{ p.name }}</span>
+      <header class="topbar">
+        <div class="brand">Real Talking <span>🗣️</span></div>
+        <div class="settings">
+          <input v-model="apiKey" @blur="saveKey" type="password"
+                 placeholder="你的 DeepSeek API key(只存在本机)" />
+          <select v-model="modelSelect" class="model">
+            <option value="deepseek-chat">deepseek-chat · V3</option>
+            <option value="deepseek-reasoner">deepseek-reasoner · R1</option>
+            <option value="__custom__">自定义…</option>
+          </select>
+          <input v-if="modelSelect === '__custom__'" v-model="customModel" class="custom-model"
+                 placeholder="模型名,如 gpt-4o-mini" />
         </div>
+      </header>
+
+      <p class="hint">选一个或多个人格(数字 = 发言顺序),它们会依次回应你</p>
+      <div class="personas">
+        <button v-for="p in personas" :key="p.id" type="button"
+                :class="['persona-card', { active: selectedIds.includes(p.id) }]"
+                :style="{ '--tint': personaColor(p) }"
+                @click="togglePersona(p.id)">
+          <span v-if="orderOf(p.id)" class="order">{{ orderOf(p.id) }}</span>
+          <span class="p-emoji">{{ p.emoji }}</span>
+          <span class="p-name">{{ p.name }}</span>
+        </button>
       </div>
 
       <div class="chat" ref="chatBox" @scroll="onScroll">
-        <p v-if="messages.length === 0" class="empty">你可以说真心话，我想们我会一直在。</p>
+        <div v-if="messages.length === 0" class="hero">
+          <div class="hero-orb" aria-hidden="true"></div>
+          <h2 class="hero-title">嗨,我在听 👋</h2>
+          <p class="hero-sub">你可以说真心话，我想们我会一直在。</p>
+        </div>
         <div v-for="(m, i) in messages" :key="i" :class="['row', m.role]">
           <div class="bubble"
                :style="m.role === 'assistant' && m.persona ? { background: personaColor(m.persona) } : null">
@@ -345,69 +362,135 @@ onMounted(async () => {
       </div>
 
       <form class="composer" @submit.prevent="send">
-        <textarea v-model="input" rows="3" :disabled="loading"
-                  placeholder="说点真心话…(Enter 发送,Ctrl+Enter 换行)"
+        <textarea v-model="input" rows="2" :disabled="loading"
+                  placeholder="说点真心话…    Enter 发送 · Ctrl+Enter 换行"
                   @keydown="onKeydown"></textarea>
-        <button :disabled="loading">{{ loading ? '思考中…' : '发送' }}</button>
+        <button class="send-btn" :disabled="loading" :title="loading ? '思考中' : '发送'">
+          <span v-if="loading">…</span>
+          <span v-else>↑</span>
+        </button>
       </form>
     </main>
   </div>
 </template>
 
-<style scoped>
-.app { display: flex; gap: 16px; max-width: 1000px; margin: 0 auto; padding: 16px;
-       font-family: system-ui, -apple-system, sans-serif; }
+<!-- 全局重置:去掉 body 边距,让整页铺满 -->
+<style>
+html, body, #app { margin: 0; height: 100%; }
+body { background: #ececef; }
+</style>
 
-/* 侧边栏 */
-.sidebar { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
-.new-btn { padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; background: #fff;
-           cursor: pointer; font-size: 14px; width: 100%; }
-.new-btn:hover { background: #f3f3f3; }
-.conv-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 72vh; }
-.conv-item { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px;
-             cursor: pointer; font-size: 13px; color: #444; }
-.conv-item:hover { background: #f3f3f3; }
-.conv-item.active { background: #e8f3ff; color: #111; }
+<style scoped>
+.app, .app * { box-sizing: border-box; }
+.app {
+  /* —— 设计 tokens:想统一改风格,调这里 —— */
+  --bg: #ececef;
+  --panel: #ffffff;
+  --ink: #1d1d22;
+  --muted: #8b8b93;
+  --line: #eeeef0;
+  --accent: #5b7cfa;
+  --accent-soft: #eef2ff;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 28px rgba(0,0,0,.05);
+
+  display: flex;
+  gap: 12px;
+  height: 100vh;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+}
+
+/* ---- 最左:图标栏 ---- */
+.rail { flex: 0 0 64px; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+        display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 0; }
+.rail-orb { width: 30px; height: 30px; border-radius: 50%; margin-bottom: 6px;
+            background: radial-gradient(circle at 32% 30%, #8aa6ff, #5b7cfa 60%, #3550d8); }
+.rail-btn { width: 42px; height: 42px; border: none; border-radius: 14px; background: transparent;
+            cursor: pointer; font-size: 19px; display: flex; align-items: center; justify-content: center;
+            transition: background .15s; }
+.rail-btn:hover:not(:disabled) { background: #f3f4f8; }
+.rail-btn.active { background: var(--ink); }
+.rail-btn:disabled { opacity: .35; cursor: not-allowed; }
+.rail-spacer { flex: 1; }
+.rail-avatar { width: 34px; height: 34px; border-radius: 50%; background: #eef0f4; color: var(--muted);
+               display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+/* ---- 中间:对话列表 ---- */
+.sidebar { flex: 0 0 220px; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+           padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.new-btn { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px;
+           border: none; border-radius: var(--radius-sm); background: var(--ink); color: #fff;
+           cursor: pointer; font-size: 14px; font-weight: 500; }
+.new-btn:hover { opacity: .9; }
+.new-btn .plus { font-size: 16px; }
+.conv-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.conv-item { display: flex; align-items: center; gap: 6px; padding: 9px 11px; border-radius: 11px;
+             cursor: pointer; font-size: 13.5px; color: #55555c; }
+.conv-item:hover { background: #f5f6f8; }
+.conv-item.active { background: var(--accent-soft); color: var(--ink); }
 .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.conv-del { border: none; background: transparent; color: #bbb; cursor: pointer; font-size: 16px;
+.conv-del { border: none; background: transparent; color: #bcbcc4; cursor: pointer; font-size: 17px;
             line-height: 1; padding: 0 2px; visibility: hidden; }
 .conv-item:hover .conv-del { visibility: visible; }
-.conv-del:hover { color: #e44; }
-.conv-empty { font-size: 12px; color: #bbb; text-align: center; margin-top: 12px; }
+.conv-del:hover { color: #ec5b5b; }
+.conv-empty { font-size: 12.5px; color: #bcbcc4; text-align: center; margin-top: 16px; }
 
-/* 主区 */
-.main { flex: 1; min-width: 0; }
-h1 { font-size: 20px; margin: 0 0 12px; }
-.settings { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.settings input, .settings select { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
-.settings .model { flex: 0 0 200px; }
-.hint { font-size: 13px; color: #888; margin: 0 0 8px; }
-.personas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.persona-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-                width: 84px; padding: 10px 6px; border: 2px solid #e3e3e3; border-radius: 12px;
-                background: #fff; cursor: pointer; user-select: none; transition: border-color .15s, background .15s; }
-.persona-card:hover { border-color: #bdbdbd; }
-.persona-card.active { border-color: #4caf50; background: #f1f8f1; }
-.persona-card .emoji { font-size: 24px; line-height: 1; }
-.persona-card .name { font-size: 12px; color: #555; }
-.persona-card .order { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px;
-                       background: #4caf50; color: #fff; border-radius: 50%; font-size: 12px;
+/* ---- 右:主面板 ---- */
+.main { flex: 1; min-width: 0; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+        padding: 18px 22px; display: flex; flex-direction: column; min-height: 0; }
+.topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.brand { font-size: 18px; font-weight: 650; white-space: nowrap; }
+.settings { display: flex; gap: 8px; flex: 1; min-width: 220px; }
+.settings input, .settings select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px;
+            background: #fafafb; font: inherit; color: var(--ink); outline: none; }
+.settings input { flex: 1; min-width: 0; }
+.settings input:focus, .settings select:focus { border-color: var(--accent); background: #fff; }
+.settings .model { flex: 0 0 auto; cursor: pointer; }
+.settings .custom-model { flex: 0 0 150px; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+
+/* 人格胶囊 */
+.personas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.persona-card { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px;
+                border: 1.5px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer;
+                font: inherit; color: var(--ink); transition: border-color .15s, background .15s; }
+.persona-card:hover { border-color: #d6d6dc; }
+.persona-card.active { border-color: transparent; background: var(--tint); box-shadow: 0 0 0 1.5px rgba(0,0,0,.06) inset; }
+.persona-card .p-emoji { font-size: 20px; line-height: 1; }
+.persona-card .p-name { font-size: 13.5px; font-weight: 500; }
+.persona-card .order { position: absolute; top: -6px; left: -6px; width: 19px; height: 19px; background: var(--ink);
+                       color: #fff; border-radius: 50%; font-size: 11px; font-weight: 600;
                        display: flex; align-items: center; justify-content: center; }
-.chat { height: 420px; overflow-y: auto; border: 1px solid #eee; border-radius: 12px;
-        padding: 16px; display: flex; flex-direction: column; gap: 10px; background: #fafafa; }
-.empty { color: #aaa; text-align: center; margin-top: 160px; }
+
+/* 对话区 */
+.chat { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 6px 4px; }
+.hero { margin: auto; text-align: center; padding: 20px; }
+.hero-orb { width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
+            background: radial-gradient(circle at 32% 28%, #9fb6ff, #5b7cfa 58%, #324fd6);
+            box-shadow: 0 10px 30px rgba(91,124,250,.35); }
+.hero-title { font-size: 26px; font-weight: 650; margin: 0 0 8px; }
+.hero-sub { font-size: 15px; color: var(--muted); margin: 0; }
 .row { display: flex; }
 .row.user { justify-content: flex-end; }
-.bubble { padding: 10px 14px; border-radius: 14px; max-width: 78%; white-space: pre-wrap; line-height: 1.5; }
-.row.user .bubble { background: #c8e6c9; }
-.row.assistant .bubble { background: #fff; border: 1px solid #eee; }
-.who { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.who-emoji { font-size: 24px; line-height: 1; }            /* emoji 头像,改这个数字调大小 */
-.who-name { font-size: 17px; font-weight: 700; color: #444; }  /* 名字,比正文(16px)略大且加粗 */
-.composer { display: flex; gap: 8px; margin-top: 12px; align-items: stretch; }
-.composer textarea { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;
-                     font: inherit; resize: vertical; min-height: 60px; }
-.composer button { padding: 10px 20px; border: none; border-radius: 8px; background: #4caf50;
-                   color: #fff; cursor: pointer; align-self: stretch; }
-.composer button:disabled { background: #aaa; cursor: not-allowed; }
+.bubble { padding: 11px 15px; border-radius: 18px; max-width: 76%; white-space: pre-wrap; line-height: 1.55; font-size: 14.5px; }
+.row.user .bubble { background: var(--ink); color: #fff; border-bottom-right-radius: 6px; }
+.row.assistant .bubble { background: #f5f6f8; border-bottom-left-radius: 6px; }
+.who { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.who-emoji { font-size: 22px; line-height: 1; }
+.who-name { font-size: 15px; font-weight: 700; color: #3a3a40; }
+
+/* 输入条 */
+.composer { display: flex; align-items: flex-end; gap: 10px; margin-top: 12px; padding: 8px 8px 8px 16px;
+            border: 1px solid var(--line); border-radius: var(--radius); background: #fafafb; }
+.composer:focus-within { border-color: #d6d6dc; background: #fff; }
+.composer textarea { flex: 1; border: none; background: transparent; resize: none; outline: none; font: inherit;
+                     line-height: 1.5; padding: 6px 0; max-height: 140px; color: var(--ink); }
+.send-btn { flex: 0 0 auto; width: 40px; height: 40px; border: none; border-radius: 50%; background: var(--ink);
+            color: #fff; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.send-btn:disabled { background: #bcbcc4; cursor: not-allowed; }
 </style>
