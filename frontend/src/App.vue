@@ -347,7 +347,7 @@ onMounted(async () => {
         <div v-if="messages.length === 0" class="hero">
           <div class="hero-orb" aria-hidden="true"></div>
           <h2 class="hero-title">嗨,我在听 👋</h2>
-          <p class="hero-sub">你可以说真心话，我想们我会一直在。</p>
+          <p class="hero-sub">你可以说真心话，我想我们会一直在。</p>
         </div>
         <div v-for="(m, i) in messages" :key="i" :class="['row', m.role]">
           <div class="bubble"
